@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yijian/ai-platform/internal/key"
-	"github.com/yijian/ai-platform/pkg/api/key"
-	"github.com/yijian/ai-platform/pkg/metrics/prometheus"
-	"github.com/yijian/ai-platform/pkg/storage/kms"
+	"github.com/brightming/ai-platform/internal/key"
+	"github.com/brightming/ai-platform/pkg/api/key"
+	"github.com/brightming/ai-platform/pkg/metrics/prometheus"
+	"github.com/brightming/ai-platform/pkg/storage/kms"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

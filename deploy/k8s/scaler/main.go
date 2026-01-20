@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yijian/ai-platform/internal/scaler"
-	"github.com/yijian/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/internal/scaler"
+	"github.com/brightming/ai-platform/pkg/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

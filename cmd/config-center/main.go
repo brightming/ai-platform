@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yijian/ai-platform/internal/config"
-	"github.com/yijian/ai-platform/pkg/api/config"
-	"github.com/yijian/ai-platform/pkg/metrics/prometheus"
+	"github.com/brightming/ai-platform/internal/config"
+	"github.com/brightming/ai-platform/pkg/api/config"
+	"github.com/brightming/ai-platform/pkg/metrics/prometheus"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

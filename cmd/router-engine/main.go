@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yijian/ai-platform/internal/config"
-	"github.com/yijian/ai-platform/internal/registry"
-	"github.com/yijian/ai-platform/internal/router"
-	"github.com/yijian/ai-platform/pkg/metrics/prometheus"
-	"github.com/yijian/ai-platform/pkg/model"
-	"github.com/yijian/ai-platform/pkg/provider"
+	"github.com/brightming/ai-platform/internal/config"
+	"github.com/brightming/ai-platform/internal/registry"
+	"github.com/brightming/ai-platform/internal/router"
+	"github.com/brightming/ai-platform/pkg/metrics/prometheus"
+	"github.com/brightming/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/pkg/provider"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yijian/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/pkg/model"
 )
 
 // Handler 服务注册处理器

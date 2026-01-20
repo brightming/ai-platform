@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yijian/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/pkg/model"
 	"gorm.io/gorm"
 )
 

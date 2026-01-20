@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yijian/ai-platform/pkg/model"
-	"github.com/yijian/ai-platform/pkg/provider"
+	"github.com/brightming/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/pkg/provider"
 )
 
 // Engine 路由引擎

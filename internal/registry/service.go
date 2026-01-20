@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yijian/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/pkg/model"
 	"gorm.io/gorm"
 )
 

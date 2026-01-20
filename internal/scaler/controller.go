@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yijian/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/pkg/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

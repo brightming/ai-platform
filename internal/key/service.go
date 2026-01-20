@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yijian/ai-platform/pkg/model"
-	"github.com/yijian/ai-platform/pkg/storage/kms"
+	"github.com/brightming/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/pkg/storage/kms"
 	"gorm.io/gorm"
 )
 

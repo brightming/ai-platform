@@ -1,4 +1,4 @@
-module github.com/yijian/ai-platform
+module github.com/brightming/ai-platform
 
 go 1.21
 

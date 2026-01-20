@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yijian/ai-platform/internal/auth"
-	"github.com/yijian/ai-platform/internal/ratelimit"
-	"github.com/yijian/ai-platform/pkg/api/gateway"
-	"github.com/yijian/ai-platform/pkg/metrics/prometheus"
-	"github.com/yijian/ai-platform/pkg/model"
-	"github.com/yijian/ai-platform/pkg/provider"
+	"github.com/brightming/ai-platform/internal/auth"
+	"github.com/brightming/ai-platform/internal/ratelimit"
+	"github.com/brightming/ai-platform/pkg/api/gateway"
+	"github.com/brightming/ai-platform/pkg/metrics/prometheus"
+	"github.com/brightming/ai-platform/pkg/model"
+	"github.com/brightming/ai-platform/pkg/provider"
 )
 
 func main() {
