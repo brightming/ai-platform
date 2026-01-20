@@ -1,0 +1,63 @@
+# PodDisruptionBudgets for AI Platform
+# Ensures high availability during node maintenance
+
+---
+# Config Center PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: config-center-pdb
+  namespace: ai-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: config-center
+---
+# Key Manager PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: key-manager-pdb
+  namespace: ai-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: key-manager
+---
+# Service Registry PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: service-registry-pdb
+  namespace: ai-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: service-registry
+---
+# Router Engine PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: router-engine-pdb
+  namespace: ai-platform
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: router-engine
+---
+# API Gateway PDB (most critical)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: ai-platform
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: api-gateway

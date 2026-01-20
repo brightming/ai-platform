@@ -1,0 +1,45 @@
+# Prometheus configuration for local development
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ai-platform-local'
+    environment: 'development'
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # AI Platform Services
+  - job_name: 'config-center'
+    static_configs:
+      - targets: ['config-center:8080']
+        labels:
+          app: 'config-center'
+
+  - job_name: 'key-manager'
+    static_configs:
+      - targets: ['key-manager:8080']
+        labels:
+          app: 'key-manager'
+
+  - job_name: 'service-registry'
+    static_configs:
+      - targets: ['service-registry:8080']
+        labels:
+          app: 'service-registry'
+
+  - job_name: 'router-engine'
+    static_configs:
+      - targets: ['router-engine:8080']
+        labels:
+          app: 'router-engine'
+
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8080']
+        labels:
+          app: 'api-gateway'

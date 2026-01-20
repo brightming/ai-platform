@@ -1,0 +1,109 @@
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: router-engine-config
+  namespace: ai-platform
+data:
+  LOG_LEVEL: "info"
+  ROUTING_STRATEGY: "weighted"  # weighted, priority, cost_based
+  FALLBACK_ENABLED: "true"
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router-engine
+  namespace: ai-platform
+  labels:
+    app: router-engine
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: router-engine
+  template:
+    metadata:
+      labels:
+        app: router-engine
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: router-engine
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: router-engine
+          image: registry.com/ai/router-engine:v1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: router-engine-config
+                  key: LOG_LEVEL
+            - name: ROUTING_STRATEGY
+              valueFrom:
+                configMapKeyRef:
+                  name: router-engine-config
+                  key: ROUTING_STRATEGY
+            - name: FALLBACK_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: router-engine-config
+                  key: FALLBACK_ENABLED
+            - name: CONFIG_CENTER_ADDR
+              value: "config-center.ai-platform.svc.cluster.local:80"
+            - name: REGISTRY_ADDR
+              value: "service-registry.ai-platform.svc.cluster.local:80"
+            - name: KEY_MANAGER_ADDR
+              value: "key-manager.ai-platform.svc.cluster.local:80"
+          resources:
+            requests:
+              cpu: 300m
+              memory: 384Mi
+            limits:
+              cpu: 1500m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: router-engine
+  namespace: ai-platform
+  labels:
+    app: router-engine
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  selector:
+    app: router-engine

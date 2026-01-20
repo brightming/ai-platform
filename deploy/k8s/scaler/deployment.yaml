@@ -1,0 +1,177 @@
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scaler-config
+  namespace: ai-platform
+data:
+  LOG_LEVEL: "info"
+  SCALE_CHECK_INTERVAL: "30"  # seconds
+---
+# Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: scaler-secret
+  namespace: ai-platform
+type: Opaque
+stringData:
+  # Database connection
+  DB_HOST: "rm-xxx.mysql.rds.aliyuncs.com"
+  DB_PORT: "3306"
+  DB_NAME: "ai_platform"
+  DB_USER: "ai_platform"
+  DB_PASSWORD: "your-password"
+---
+# ServiceAccount for scaler (with RBAC for K8s API access)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: scaler
+  namespace: ai-platform
+---
+# Role for scaler
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: scaler
+  namespace: ai-platform
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: scaler
+  namespace: ai-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: scaler
+subjects:
+  - kind: ServiceAccount
+    name: scaler
+    namespace: ai-platform
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scaler
+  namespace: ai-platform
+  labels:
+    app: scaler
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: scaler
+  template:
+    metadata:
+      labels:
+        app: scaler
+    spec:
+      serviceAccountName: scaler
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: scaler
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: scaler
+          image: registry.com/ai/scaler:v1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: scaler-config
+                  key: LOG_LEVEL
+            - name: SCALE_CHECK_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: scaler-config
+                  key: SCALE_CHECK_INTERVAL
+            - name: REGISTRY_ADDR
+              value: "service-registry.ai-platform.svc.cluster.local:80"
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: scaler-secret
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: scaler-secret
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: scaler-secret
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: scaler-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: scaler-secret
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: scaler
+  namespace: ai-platform
+  labels:
+    app: scaler
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app: scaler

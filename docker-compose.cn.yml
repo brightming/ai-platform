@@ -1,0 +1,224 @@
+# AI Platform Docker Compose - 国内镜像版本
+# 如果无法访问 Docker Hub，使用此配置
+
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: ai-platform-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: ai_platform
+      MYSQL_USER: ai_platform
+      MYSQL_PASSWORD: ai_platform123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ai-platform
+
+  # Redis for rate limiting
+  redis:
+    image: redis:7-alpine
+    container_name: ai-platform-redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ai-platform
+
+  # Config Center
+  config-center:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: config-center
+        VERSION: v1.0.0
+    container_name: ai-platform-config-center
+    environment:
+      LOG_LEVEL: debug
+      GIN_MODE: debug
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ai_platform
+      DB_USER: ai_platform
+      DB_PASSWORD: ai_platform123
+    ports:
+      - "8001:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ai-platform
+
+  # Key Manager
+  key-manager:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: key-manager
+        VERSION: v1.0.0
+    container_name: ai-platform-key-manager
+    environment:
+      LOG_LEVEL: debug
+      GIN_MODE: debug
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ai_platform
+      DB_USER: ai_platform
+      DB_PASSWORD: ai_platform123
+      KMS_REGION_ID: cn-hangzhou
+      KMS_KEY_ID: local-test-key
+      KMS_MOCK: "true"
+    ports:
+      - "8002:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ai-platform
+
+  # Service Registry
+  service-registry:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: service-registry
+        VERSION: v1.0.0
+    container_name: ai-platform-service-registry
+    environment:
+      LOG_LEVEL: debug
+      GIN_MODE: debug
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ai_platform
+      DB_USER: ai_platform
+      DB_PASSWORD: ai_platform123
+      HEARTBEAT_TIMEOUT: "90"
+      HEARTBEAT_INTERVAL: "10"
+    ports:
+      - "8003:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ai-platform
+
+  # Router Engine
+  router-engine:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: router-engine
+        VERSION: v1.0.0
+    container_name: ai-platform-router-engine
+    environment:
+      LOG_LEVEL: debug
+      GIN_MODE: debug
+      ROUTING_STRATEGY: cost_based
+      FALLBACK_ENABLED: "true"
+      CONFIG_CENTER_ADDR: config-center:8080
+      REGISTRY_ADDR: service-registry:8080
+      KEY_MANAGER_ADDR: key-manager:8080
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ai_platform
+      DB_USER: ai_platform
+      DB_PASSWORD: ai_platform123
+    ports:
+      - "8004:8080"
+    depends_on:
+      - config-center
+      - service-registry
+      - key-manager
+    networks:
+      - ai-platform
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: api-gateway
+        VERSION: v1.0.0
+    container_name: ai-platform-api-gateway
+    environment:
+      LOG_LEVEL: debug
+      GIN_MODE: debug
+      CONFIG_CENTER_ADDR: config-center:8080
+      REGISTRY_ADDR: service-registry:8080
+      KEY_MANAGER_ADDR: key-manager:8080
+      ROUTER_ENGINE_ADDR: router-engine:8080
+      JWT_SECRET: local-jwt-secret-for-testing-only
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_RPM: "100"
+    ports:
+      - "8000:8080"
+    depends_on:
+      - config-center
+      - service-registry
+      - key-manager
+      - router-engine
+      - redis
+    networks:
+      - ai-platform
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: ai-platform-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/local/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - ai-platform
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: ai-platform-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_SERVER_ROOT_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - ai-platform
+
+volumes:
+  mysql_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  ai-platform:
+    driver: bridge

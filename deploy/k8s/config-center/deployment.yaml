@@ -1,0 +1,165 @@
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-center-config
+  namespace: ai-platform
+data:
+  LOG_LEVEL: "info"
+  GIN_MODE: "release"
+---
+# Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: config-center-secret
+  namespace: ai-platform
+type: Opaque
+stringData:
+  # 数据库连接
+  DB_HOST: "rm-xxx.mysql.rds.aliyuncs.com"
+  DB_PORT: "3306"
+  DB_NAME: "ai_platform"
+  DB_USER: "ai_platform"
+  DB_PASSWORD: "your-password"
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-center
+  namespace: ai-platform
+  labels:
+    app: config-center
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: config-center
+  template:
+    metadata:
+      labels:
+        app: config-center
+    spec:
+      # 反亲和性：Pod分散在不同节点
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: config-center
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: config-center
+          image: registry.com/ai/config-center:v1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: config-center-config
+                  key: LOG_LEVEL
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-center
+  namespace: ai-platform
+  labels:
+    app: config-center
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app: config-center
+---
+# HPA
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: config-center-hpa
+  namespace: ai-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: config-center
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

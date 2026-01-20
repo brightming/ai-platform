@@ -1,0 +1,144 @@
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-registry-config
+  namespace: ai-platform
+data:
+  LOG_LEVEL: "info"
+  HEARTBEAT_TIMEOUT: "90"  # 心跳超时时间(秒)
+  HEARTBEAT_INTERVAL: "10"  # 健康检查间隔(秒)
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-registry
+  namespace: ai-platform
+  labels:
+    app: service-registry
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: service-registry
+  template:
+    metadata:
+      labels:
+        app: service-registry
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: service-registry
+      containers:
+        - name: service-registry
+          image: registry.com/ai/service-registry:v1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: service-registry-config
+                  key: LOG_LEVEL
+            - name: HEARTBEAT_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: service-registry-config
+                  key: HEARTBEAT_TIMEOUT
+            - name: HEARTBEAT_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: service-registry-config
+                  key: HEARTBEAT_INTERVAL
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: config-center-secret
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-registry
+  namespace: ai-platform
+  labels:
+    app: service-registry
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  selector:
+    app: service-registry
+---
+# Headless Service (用于服务发现)
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-registry-headless
+  namespace: ai-platform
+  labels:
+    app: service-registry
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  selector:
+    app: service-registry

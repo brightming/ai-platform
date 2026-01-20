@@ -1,0 +1,313 @@
+# Prometheus Stack for AI Platform Monitoring
+
+---
+# Prometheus ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: ai-platform
+---
+# Prometheus Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus
+  namespace: ai-platform
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "endpoints", "services"]
+    verbs: ["get", "list", "watch"]
+---
+# Prometheus RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus
+  namespace: ai-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: ai-platform
+---
+# Prometheus ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: ai-platform
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'ai-platform'
+        environment: 'production'
+
+    # Rule files
+    rule_files:
+      - '/etc/prometheus/rules/*.yml'
+
+    # Scrape configurations
+    scrape_configs:
+      # Prometheus self-monitoring
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      # Kubernetes API Server
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+          - role: endpoints
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: default;kubernetes;https
+
+      # AI Platform Services
+      - job_name: 'config-center'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [ai-platform]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: config-center
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+      - job_name: 'key-manager'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [ai-platform]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: key-manager
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
+
+      - job_name: 'service-registry'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [ai-platform]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: service-registry
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
+
+      - job_name: 'router-engine'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [ai-platform]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: router-engine
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
+
+      - job_name: 'api-gateway'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [ai-platform]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: api-gateway
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
+
+      - job_name: 'scaler'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [ai-platform]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: scaler
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
+
+    # AlertManager configuration
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ['alertmanager:9093']
+
+  alerts.yml: |
+    groups:
+      - name: ai_platform_alerts
+        interval: 30s
+        rules:
+          # API Gateway alerts
+          - alert: APIGatewayHighErrorRate
+            expr: rate(ai_platform_requests_total{status="error"}[5m]) > 10
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High error rate on API Gateway"
+              description: "Error rate is {{ $value }} errors/sec"
+
+          - alert: APIGatewayHighLatency
+            expr: histogram_quantile(0.95, rate(ai_platform_request_duration_seconds_bucket[5m])) > 5
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High latency on API Gateway"
+              description: "P95 latency is {{ $value }} seconds"
+
+          # Service Registry alerts
+          - alert: ServiceUnhealthy
+            expr: ai_platform_service_status < 1
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Service is unhealthy"
+              description: "Service {{ $labels.service_id }} has been unhealthy for 2 minutes"
+
+          # Budget alerts
+          - alert: BudgetExceeded
+            expr: ai_platform_budget_usage_percentage > 90
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Budget threshold exceeded"
+              description: "Budget {{ $labels.budget_id }} is at {{ $value }}%"
+
+          # Queue depth alerts
+          - alert: HighQueueDepth
+            expr: ai_platform_queue_depth > 100
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High queue depth"
+              description: "Queue depth for {{ $labels.feature }} is {{ $value }}"
+
+          # Scaler alerts
+          - alert: ScaleToZeroTriggered
+            expr: ai_platform_scale_action="scale_to_zero"
+            labels:
+              severity: info
+            annotations:
+              summary: "Service scaled to zero"
+              description: "Feature {{ $labels.feature_id }} has been scaled to zero"
+
+          - alert: ScaleUpTriggered
+            expr: ai_platform_scale_action="scale_up"
+            labels:
+              severity: info
+            annotations:
+              summary: "Service scaled up"
+              description: "Feature {{ $labels.feature_id }} scaled from {{ $labels.current }} to {{ $labels.target }}"
+---
+# Prometheus Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: ai-platform
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.47.0
+          args:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--storage.tsdb.retention.time=30d'
+            - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+            - '--web.console.templates=/usr/share/prometheus/consoles'
+          ports:
+            - name: web
+              containerPort: 9090
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: storage
+              mountPath: /prometheus
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: web
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: storage
+          emptyDir: {}
+---
+# Prometheus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: ai-platform
+  labels:
+    app: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - name: web
+      port: 9090
+      targetPort: web
+      protocol: TCP
+  selector:
+    app: prometheus

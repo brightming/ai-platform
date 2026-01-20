@@ -1,0 +1,14 @@
+# AI Platform Agent Requirements
+# Python client for service registry and heartbeat
+
+# HTTP requests
+requests>=2.31.0
+
+# System metrics
+psutil>=5.9.0
+
+# GPU monitoring (optional)
+GPUtil>=1.4.0
+
+# Data validation
+pydantic>=2.0.0

@@ -1,0 +1,111 @@
+# Prometheus ServiceMonitors for AI Platform
+# Requires Prometheus Operator installed
+
+---
+# Config Center ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: config-center
+  namespace: ai-platform
+  labels:
+    app: config-center
+spec:
+  selector:
+    matchLabels:
+      app: config-center
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+# Key Manager ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: key-manager
+  namespace: ai-platform
+  labels:
+    app: key-manager
+spec:
+  selector:
+    matchLabels:
+      app: key-manager
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+# Service Registry ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-registry
+  namespace: ai-platform
+  labels:
+    app: service-registry
+spec:
+  selector:
+    matchLabels:
+      app: service-registry
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+# Router Engine ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: router-engine
+  namespace: ai-platform
+  labels:
+    app: router-engine
+spec:
+  selector:
+    matchLabels:
+      app: router-engine
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+---
+# API Gateway ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api-gateway
+  namespace: ai-platform
+  labels:
+    app: api-gateway
+spec:
+  selector:
+    matchLabels:
+      app: api-gateway
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+---
+# Scaler ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: scaler
+  namespace: ai-platform
+  labels:
+    app: scaler
+spec:
+  selector:
+    matchLabels:
+      app: scaler
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

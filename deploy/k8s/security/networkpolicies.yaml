@@ -1,0 +1,218 @@
+# NetworkPolicies for AI Platform
+# Restricts network traffic between services for security
+
+---
+# Default deny all ingress traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: ai-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Config Center NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: config-center-netpol
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: config-center
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+        - podSelector:
+            matchLabels:
+              app: router-engine
+        - podSelector:
+            matchLabels:
+              app: key-manager
+        - podSelector:
+            matchLabels:
+              app: service-registry
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: ai-platform
+      ports:
+        - protocol: TCP
+          port: 3306  # MySQL
+    - to: []  # Allow DNS
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# Key Manager NetworkPolicy (most restrictive)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: key-manager-netpol
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: key-manager
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+        - podSelector:
+            matchLabels:
+              app: router-engine
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to: []  # Only KMS endpoint via NAT gateway
+      ports:
+        - protocol: TCP
+          port: 443
+    - to: []  # Allow DNS
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# Service Registry NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: service-registry-netpol
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: service-registry
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        # Allow from all platform services
+        - namespaceSelector:
+            matchLabels:
+              name: ai-platform
+        # Allow from external services (self-hosted images)
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: ai-platform
+      ports:
+        - protocol: TCP
+          port: 3306
+    - to: []  # Allow DNS
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# Router Engine NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: router-engine-netpol
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: router-engine
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: ai-platform
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to: []  # External third-party APIs
+      ports:
+        - protocol: TCP
+          port: 443
+    - to: []  # Allow DNS
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# API Gateway NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-gateway-netpol
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from: []  # Allow from anywhere (external traffic)
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: ai-platform
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to: []  # Allow DNS
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# Allow egress to Redis (rate limiting)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-egress
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
