@@ -31,7 +31,7 @@ func main() {
 		log.Fatalf("Failed to init database: %v", err)
 	}
 
-	// 初始化服务
+	// 初始化服�?
 	configService := config.NewService(db)
 	configHandler := config.NewHandler(configService)
 
@@ -45,7 +45,7 @@ func main() {
 	r.Use(gin.Logger())
 	r.Use(corsMiddleware())
 
-	// 健康检查
+	// 健康检�?
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
@@ -75,7 +75,7 @@ func main() {
 		configHandler.RegisterRoutes(v1)
 	}
 
-	// 启动HTTP服务器
+	// 启动HTTP服务�?
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: r,

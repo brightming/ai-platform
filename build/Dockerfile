@@ -19,28 +19,31 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 WORKDIR /app
 
 # Set environment variables for Go module handling
+# Skip all network lookups for local modules
 ENV GOPROXY=https://goproxy.cn,direct
 ENV GOSUMDB=off
+ENV GOPRIVATE=mycompany.local
+ENV GONOPROXY=mycompany.local
+ENV GONOSUMDB=mycompany.local
 
 # Copy all source code
 COPY . .
 
 # Initialize git repo for local module resolution
+# Note: No remote needed - this is a local-only module
 RUN git init && \
     git config user.email "build@localhost" && \
     git config user.name "Build" && \
     git add -A && \
-    git commit -m "init" && \
-    git remote add origin https://github.com/yijian/ai-platform.git
+    git commit -m "init"
 
-# Generate go.sum with go mod tidy
-RUN go mod tidy
+# Download external dependencies and create vendor directory
+# This ensures all dependencies are available locally during build
+RUN go mod vendor
 
-# Download external dependencies
-RUN go mod download
-
-# Build the specified service
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v \
+# Build the specified service using -mod=vendor
+# Vendor mode ensures no network access is needed for dependencies
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -mod=vendor \
     -ldflags="-X main.Version=${VERSION} -s -w" \
     -o /bin/${SERVICE} \
     ./cmd/${SERVICE}
