@@ -3,6 +3,7 @@ module github.com/brightming/ai-platform
 go 1.21
 
 require (
+	github.com/brightming/ai-platform v1.0.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.744
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
