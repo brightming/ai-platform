@@ -16,34 +16,21 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
     apk add --no-cache git make gcc musl-dev
 
 # Set working directory
-WORKDIR /app
+WORKDIR /src
 
 # Set environment variables for Go module handling
-# Skip all network lookups for local modules
 ENV GOPROXY=https://goproxy.cn,direct
 ENV GOSUMDB=off
-ENV GOPRIVATE=mycompany.local
-ENV GONOPROXY=mycompany.local
-ENV GONOSUMDB=mycompany.local
+ENV GOPRIVATE=github.com/brightming/*
+ENV GONOPROXY=github.com/brightming/*
+ENV GONOSUMDB=github.com/brightming/*
 
-# Copy all source code
-COPY . .
+# Clone the repository from GitHub
+RUN git clone --depth 1 --branch v1.0.0 https://github.com/brightming/ai-platform.git . && \
+    ls -la
 
-# Initialize git repo for local module resolution
-# Note: No remote needed - this is a local-only module
-RUN git init && \
-    git config user.email "build@localhost" && \
-    git config user.name "Build" && \
-    git add -A && \
-    git commit -m "init"
-
-# Download external dependencies and create vendor directory
-# This ensures all dependencies are available locally during build
-RUN go mod vendor
-
-# Build the specified service using -mod=vendor
-# Vendor mode ensures no network access is needed for dependencies
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -mod=vendor \
+# Build the specified service
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v \
     -ldflags="-X main.Version=${VERSION} -s -w" \
     -o /bin/${SERVICE} \
     ./cmd/${SERVICE}
